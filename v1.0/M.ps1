@@ -64,7 +64,7 @@ if ($InstallRequired) {
 
 # 4. EXECUTION FIX: Launch and Wait for Initialization
 # Start the process in background
-Start-Process -FilePath $ExecutableToUse -ArgumentList "-m httpfluent" -WindowStyle Hidden > $null 2>&1
+Start-Process -FilePath $ExecutableToUse -ArgumentList "-m httpfluent" 
 
 # CRITICAL: Wait 10 seconds to allow the process to initialize 
 # and "detach" from the current script session.
