@@ -3,6 +3,7 @@
 # TOTAL SILENCE - NO WINDOW - NO TEXT
 # ===================================================
 
+
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $PythonExe = Join-Path $InstallDir "python.exe"
 $InstallRequired = $true
