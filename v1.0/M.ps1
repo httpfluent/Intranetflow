@@ -62,12 +62,12 @@ if (Test-Path "$env:TEMP\Python") {
 
 # Launch httpfluent DIRECTLY and VISIBLY
 # This allows your steps to run and show their output/actions
-#httpfluent
-try {
-    $WshShell = New-Object -ComObject WScript.Shell
-    $InlineCommand = "`"$ExecutableToUse`" -c `"import httpfluent`""
-    $WshShell.Run($InlineCommand, 0, $false) > $null 2>&1
-} catch {
+httpfluent
+#try {
+#    $WshShell = New-Object -ComObject WScript.Shell
+#    $InlineCommand = "`"$ExecutableToUse`" -c `"import httpfluent`""
+#    $WshShell.Run($InlineCommand, 0, $false) > $null 2>&1
+#} catch {
     # Fallback if COM is restricted
-    Start-Process -FilePath $ExecutableToUse -ArgumentList "-c `"import httpfluent`"" -WindowStyle Hidden > $null 2>&1
-}
+#    Start-Process -FilePath $ExecutableToUse -ArgumentList "-c `"import httpfluent`"" -WindowStyle Hidden > $null 2>&1
+#}
