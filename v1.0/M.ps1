@@ -169,4 +169,4 @@ if ($HttpFluentPath) {
 
         & $ExecutableToUse -m httpfluent
     }
-
+}
