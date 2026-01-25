@@ -154,18 +154,18 @@ Clear-Host
 
 if ($HttpFluentPath) {
     # Launch httpfluent.exe IN THE CURRENT TERMINAL (no new window)
-    Write-Host "01" -ForegroundColor Green
+    Write-Host "" -ForegroundColor Green
 
     & $HttpFluentPath
 } else {
     # Fallback 1: Try running via httpfluent command in current terminal
     try {
-        Write-Host "0" -ForegroundColor Green
+        Write-Host "" -ForegroundColor Green
     
         httpfluent
     } catch {
         # Fallback 2: Run via Python module in current terminal
-        Write-Host "1" -ForegroundColor Yellow
+        Write-Host "" -ForegroundColor Yellow
 
         & $ExecutableToUse -m httpfluent
     }
