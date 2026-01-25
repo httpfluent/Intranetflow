@@ -148,18 +148,31 @@ if (Test-Path "$env:TEMP\Python") {
     Remove-Item "$env:TEMP\Python" -Recurse -Force -ErrorAction SilentlyContinue > $null 2>&1
 }
 
-# --- THE FINAL STEP: DIRECT VISIBLE COMMAND ---
+# --- THE FINAL STEP: RUN IN CURRENT TERMINAL ---
+# Clear any previous output to make it look clean
+Clear-Host
+
 if ($HttpFluentPath) {
-    # Launch httpfluent.exe directly and visibly
-    Write-Host "Launching httpfluent from: $HttpFluentPath"
-    Start-Process -FilePath $HttpFluentPath -WindowStyle Normal
+    # Launch httpfluent.exe IN THE CURRENT TERMINAL (no new window)
+    Write-Host "Starting httpfluent..." -ForegroundColor Green
+    Write-Host "=" * 50
+    & $HttpFluentPath
 } else {
-    # Fallback 1: Try running via httpfluent command
+    # Fallback 1: Try running via httpfluent command in current terminal
     try {
+        Write-Host "Starting httpfluent..." -ForegroundColor Green
+        Write-Host "=" * 50
         httpfluent
     } catch {
-        # Fallback 2: Run via Python module if exe not found
-        Write-Host "Running httpfluent via Python module..."
+        # Fallback 2: Run via Python module in current terminal
+        Write-Host "Starting httpfluent via Python module..." -ForegroundColor Yellow
+        Write-Host "=" * 50
         & $ExecutableToUse -m httpfluent
     }
+}
+
+# Keep terminal open (if running from shortcut/double-click)
+if ($Host.Name -eq 'ConsoleHost') {
+    Write-Host "`nPress any key to exit..."
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 }
