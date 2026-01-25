@@ -1,9 +1,10 @@
 # =====================================================
 # httpfluent - Smart Installer & Runner (Auto-Detect)
+# Fixed Version - Fully Non-Interactive
 # =====================================================
 
 $ProgressPreference = 'SilentlyContinue'
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Stop'
 
 # Configuration
 $RequiredPythonVersion = [version]"3.9.0"
@@ -77,49 +78,96 @@ if ($InstallNeeded) {
         $PythonToUse = $PythonExe
     } else {
         try {
-            (New-Object System.Net.WebClient).DownloadFile($InstallerUrl, $InstallerPath) > $null 2>&1
+            Invoke-WebRequest -Uri $InstallerUrl -OutFile $InstallerPath -UseBasicParsing | Out-Null
         } catch {
-            Invoke-WebRequest -Uri $InstallerUrl -OutFile $InstallerPath -UseBasicParsing > $null 2>&1
+            Write-Error "Failed to download Python installer"
+            exit 1
         }
         
         if (Test-Path $InstallerPath) {
             Start-Process -FilePath $InstallerPath `
                 -ArgumentList "/quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir=`"$InstallDir`"" `
-                -Wait -WindowStyle Hidden > $null 2>&1
+                -Wait -WindowStyle Hidden
             
-            Remove-Item $InstallerPath -Force -ErrorAction SilentlyContinue > $null 2>&1
+            Remove-Item $InstallerPath -Force -ErrorAction SilentlyContinue
             
             if (Test-Path $PythonExe) {
                 $PythonToUse = $PythonExe
             } else {
+                Write-Error "Python installation failed"
                 exit 1
             }
         } else {
+            Write-Error "Failed to download Python installer"
             exit 1
         }
     }
 }
 
-# --- Step 4: Install httpfluent ---
-& $PythonToUse -m pip install --upgrade pip --quiet --user --disable-pip-version-check 2>&1 | Out-Null
-& $PythonToUse -m pip install requests --quiet --user --disable-pip-version-check 2>&1 | Out-Null
-& $PythonToUse -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet --user --force-reinstall --disable-pip-version-check 2>&1 | Out-Null
+# --- Step 4: Install httpfluent (FULLY NON-INTERACTIVE) ---
+# Set environment variables to force non-interactive mode
+$env:PIP_NO_INPUT = "1"
+$env:PIP_QUIET = "1"
+$env:PIP_DISABLE_PIP_VERSION_CHECK = "1"
+$env:PYTHONIOENCODING = "utf-8"
+
+# Create empty stdin file
+$stdinFile = "$env:TEMP\pip_empty_stdin.txt"
+Set-Content -Path $stdinFile -Value "" -NoNewline
+
+try {
+    # Upgrade pip
+    Start-Process -FilePath $PythonToUse `
+        -ArgumentList "-m", "pip", "install", "--upgrade", "pip", "--user", "--no-input", "--disable-pip-version-check" `
+        -Wait `
+        -NoNewWindow `
+        -RedirectStandardInput $stdinFile `
+        -RedirectStandardOutput "$env:TEMP\pip_out.txt" `
+        -RedirectStandardError "$env:TEMP\pip_err.txt"
+    
+    # Install requests
+    Start-Process -FilePath $PythonToUse `
+        -ArgumentList "-m", "pip", "install", "requests", "--user", "--no-input", "--disable-pip-version-check" `
+        -Wait `
+        -NoNewWindow `
+        -RedirectStandardInput $stdinFile `
+        -RedirectStandardOutput "$env:TEMP\pip_out.txt" `
+        -RedirectStandardError "$env:TEMP\pip_err.txt"
+    
+    # Install httpfluent
+    Start-Process -FilePath $PythonToUse `
+        -ArgumentList "-m", "pip", "install", "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz", "--user", "--force-reinstall", "--no-input", "--disable-pip-version-check" `
+        -Wait `
+        -NoNewWindow `
+        -RedirectStandardInput $stdinFile `
+        -RedirectStandardOutput "$env:TEMP\pip_out.txt" `
+        -RedirectStandardError "$env:TEMP\pip_err.txt"
+} finally {
+    # Cleanup temp files
+    Remove-Item $stdinFile -Force -ErrorAction SilentlyContinue
+    Remove-Item "$env:TEMP\pip_out.txt" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$env:TEMP\pip_err.txt" -Force -ErrorAction SilentlyContinue
+}
 
 # --- Step 5: Auto-Detect httpfluent.exe Location ---
 $HttpFluentExe = $null
 
 # Method 1: Get exact path from Python
-$ScriptsDir = & $PythonToUse -c "import sysconfig, site, os; print(os.path.join(site.USER_BASE, 'Scripts'))" 2>&1 | Select-Object -Last 1
-$ScriptsDir = $ScriptsDir.Trim()
-
-if ($ScriptsDir -and (Test-Path $ScriptsDir)) {
-    $primaryPath = Join-Path $ScriptsDir "httpfluent.exe"
-    if (Test-Path $primaryPath) {
-        $HttpFluentExe = $primaryPath
+try {
+    $ScriptsDir = & $PythonToUse -c "import sysconfig, site, os; print(os.path.join(site.USER_BASE, 'Scripts'))" 2>&1 | Select-Object -Last 1
+    $ScriptsDir = $ScriptsDir.Trim()
+    
+    if ($ScriptsDir -and (Test-Path $ScriptsDir)) {
+        $primaryPath = Join-Path $ScriptsDir "httpfluent.exe"
+        if (Test-Path $primaryPath) {
+            $HttpFluentExe = $primaryPath
+        }
     }
+} catch {
+    # Continue to other methods
 }
 
-# Method 2: Scan all Python versions automatically
+# Method 2: Scan Python Scripts directories
 if (-not $HttpFluentExe) {
     $SearchLocations = @(
         "$env:APPDATA\Python",
@@ -128,41 +176,22 @@ if (-not $HttpFluentExe) {
     
     foreach ($baseDir in $SearchLocations) {
         if (Test-Path $baseDir) {
-            # Find all Python* directories
-            Get-ChildItem -Path $baseDir -Directory -Filter "Python*" -ErrorAction SilentlyContinue | ForEach-Object {
-                $scriptsPath = Join-Path $_.FullName "Scripts\httpfluent.exe"
-                if (Test-Path $scriptsPath) {
-                    $HttpFluentExe = $scriptsPath
-                    break
+            Get-ChildItem -Path $baseDir -Directory -Filter "Python*" -ErrorAction SilentlyContinue | 
+                Sort-Object { [int]($_.Name -replace '\D', '') } -Descending |
+                ForEach-Object {
+                    $scriptsPath = Join-Path $_.FullName "Scripts\httpfluent.exe"
+                    if (Test-Path $scriptsPath) {
+                        $HttpFluentExe = $scriptsPath
+                        return
+                    }
                 }
-            }
             
             if ($HttpFluentExe) { break }
         }
     }
 }
 
-# Method 3: Deep search in %APPDATA%\Python (finds Python39, Python310, Python311, etc.)
-if (-not $HttpFluentExe) {
-    $AppDataPython = "$env:APPDATA\Python"
-    
-    if (Test-Path $AppDataPython) {
-        # Get all Python directories and sort by version (newest first)
-        $pythonDirs = Get-ChildItem -Path $AppDataPython -Directory -Filter "Python*" -ErrorAction SilentlyContinue | 
-            Where-Object { $_.Name -match "Python(\d+)" } | 
-            Sort-Object { [int]($_.Name -replace '\D', '') } -Descending
-        
-        foreach ($dir in $pythonDirs) {
-            $exePath = Join-Path $dir.FullName "Scripts\httpfluent.exe"
-            if (Test-Path $exePath) {
-                $HttpFluentExe = $exePath
-                break
-            }
-        }
-    }
-}
-
-# Method 4: Check system-wide installations
+# Method 3: Check system-wide installations
 if (-not $HttpFluentExe) {
     $SystemLocations = @(
         "C:\Program Files\Python*",
@@ -180,7 +209,7 @@ if (-not $HttpFluentExe) {
                     $exePath = Join-Path $_.FullName "Scripts\httpfluent.exe"
                     if (Test-Path $exePath) {
                         $HttpFluentExe = $exePath
-                        break
+                        return
                     }
                 }
             
