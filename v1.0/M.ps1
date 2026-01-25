@@ -199,7 +199,27 @@ if (-not $HttpFluentExe) {
 # --- Step 6: Run httpfluent.exe ---
 if ($HttpFluentExe -and (Test-Path $HttpFluentExe)) {
     & $HttpFluentExe
-} else {
-    # Ultimate fallback: Run via Python module
-    & $PythonToUse -c "import sys; from httpfluent import winssl; sys.exit(winssl.main())"
+    exit 0
 }
+
+# If still not found, do one more deep search
+$FinalSearch = @(
+    "$env:APPDATA\Python",
+    "$env:LOCALAPPDATA\Programs\Python",
+    "C:\Program Files\Python*",
+    "C:\Program Files (x86)\Python*"
+)
+
+foreach ($baseDir in $FinalSearch) {
+    if (Test-Path $baseDir) {
+        $found = Get-ChildItem -Path $baseDir -Recurse -Filter "httpfluent.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) {
+            & $found.FullName
+            exit 0
+        }
+    }
+}
+
+# If absolutely nothing works, show error
+Write-Host "Error: httpfluent.exe not found after installation"
+exit 1
