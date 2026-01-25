@@ -109,3 +109,4 @@ if (Test-Path $HttpFluentExe) {
 }
 
 Write-Host "[*] Script finished." -ForegroundColor Cyan
+#end
