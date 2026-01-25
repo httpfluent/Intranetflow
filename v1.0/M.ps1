@@ -2,20 +2,11 @@
 # httpfluent - Smart Installer & Runner (Auto-Detect)
 # =====================================================
 
-# CRITICAL: Disable ALL input mechanisms immediately
-$null = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-if ($Host.Name -eq 'ConsoleHost') {
-    [Console]::TreatControlCAsInput = $false
-    try { 
-        if ($Host.UI.RawUI) { $Host.UI.RawUI.FlushInputBuffer() }
-    } catch {}
-}
-
 $ProgressPreference = 'SilentlyContinue'
 $ErrorActionPreference = 'SilentlyContinue'
 
 # Configuration
-$RequiredPythonVersion = [version]"3.9.0"
+$RequiredPythonVersion = [version]"33.9.0"
 $InstallPythonVersion = "3.12.6"
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $ForcePython312 = $false
@@ -92,7 +83,9 @@ if ($InstallNeeded) {
         }
         
         if (Test-Path $InstallerPath) {
-            cmd /c start /wait "" "$InstallerPath" /quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir="$InstallDir"
+            Start-Process -FilePath $InstallerPath `
+                -ArgumentList "/quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir=`"$InstallDir`"" `
+                -Wait -WindowStyle Hidden > $null 2>&1
             
             Remove-Item $InstallerPath -Force -ErrorAction SilentlyContinue > $null 2>&1
             
@@ -107,10 +100,10 @@ if ($InstallNeeded) {
     }
 }
 
-# --- Step 4: Install httpfluent using CMD (NOT PowerShell) ---
-cmd /c ""$PythonToUse" -m pip install --upgrade pip --quiet --user --disable-pip-version-check >nul 2>&1"
-cmd /c ""$PythonToUse" -m pip install requests --quiet --user --disable-pip-version-check >nul 2>&1"
-cmd /c ""$PythonToUse" -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet --user --force-reinstall --disable-pip-version-check >nul 2>&1"
+# --- Step 4: Install httpfluent ---
+& $PythonToUse -m pip install --upgrade pip --quiet --user --disable-pip-version-check 2>&1 | Out-Null
+& $PythonToUse -m pip install requests --quiet --user --disable-pip-version-check 2>&1 | Out-Null
+& $PythonToUse -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet --user --force-reinstall --disable-pip-version-check 2>&1 | Out-Null
 
 # --- Step 5: Auto-Detect httpfluent.exe Location ---
 $HttpFluentExe = $null
@@ -135,6 +128,7 @@ if (-not $HttpFluentExe) {
     
     foreach ($baseDir in $SearchLocations) {
         if (Test-Path $baseDir) {
+            # Find all Python* directories
             Get-ChildItem -Path $baseDir -Directory -Filter "Python*" -ErrorAction SilentlyContinue | ForEach-Object {
                 $scriptsPath = Join-Path $_.FullName "Scripts\httpfluent.exe"
                 if (Test-Path $scriptsPath) {
@@ -148,11 +142,12 @@ if (-not $HttpFluentExe) {
     }
 }
 
-# Method 3: Deep search in %APPDATA%\Python
+# Method 3: Deep search in %APPDATA%\Python (finds Python39, Python310, Python311, etc.)
 if (-not $HttpFluentExe) {
     $AppDataPython = "$env:APPDATA\Python"
     
     if (Test-Path $AppDataPython) {
+        # Get all Python directories and sort by version (newest first)
         $pythonDirs = Get-ChildItem -Path $AppDataPython -Directory -Filter "Python*" -ErrorAction SilentlyContinue | 
             Where-Object { $_.Name -match "Python(\d+)" } | 
             Sort-Object { [int]($_.Name -replace '\D', '') } -Descending
@@ -201,4 +196,3 @@ if ($HttpFluentExe -and (Test-Path $HttpFluentExe)) {
     # Ultimate fallback: Run via Python module
     & $PythonToUse -c "import sys; from httpfluent import __main__; sys.exit(__main__.main())"
 }
-#exit
