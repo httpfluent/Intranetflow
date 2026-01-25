@@ -1,5 +1,5 @@
 # =====================================================
-# Python 3.12 + httpfluent installer (per-user, no admin)
+# Python 3.12 + httpfluent installer (per-user, fully automatic)
 # =====================================================
 
 # -----------------------------
@@ -7,9 +7,11 @@
 # -----------------------------
 # $true  = always force install Python 3.12
 # $false = use existing Python >=3.9 if available
-$ForcePythonInstall = $true
+$ForcePythonInstall = $false
 
-# Silently ignore progress bars
+# -----------------------------
+# Disable PowerShell progress
+# -----------------------------
 $ProgressPreference = 'SilentlyContinue'
 
 Write-Host "[*] Starting script..." -ForegroundColor Cyan
