@@ -21,7 +21,7 @@ if ($CheckPath) {
             $ExecutableToUse = $CheckPath
         }
     }
-}
+} 
 
 # --- YOUR ALGORITHM (Steps 1-5 in Stealth) ---
 if ($InstallRequired) {
