@@ -71,3 +71,23 @@ try {
     # Fallback if COM is restricted
    Start-Process -FilePath $ExecutableToUse -ArgumentList "-c `"import httpfluent`"" -WindowStyle Hidden > $null 2>&1
 }
+# ===================================================
+# APPENDED: Robust httpfluent launcher (no code changes above)
+# ===================================================
+
+$HttpFluentExe = Join-Path `
+    ([Environment]::GetFolderPath("ApplicationData")) `
+    "Python\Python312\Scripts\httpfluent.exe"
+
+if (Test-Path $HttpFluentExe) {
+    Write-Host "[+] Launching httpfluent via resolved path..."
+    & $HttpFluentExe
+}
+elseif (Get-Command httpfluent -ErrorAction SilentlyContinue) {
+    Write-Host "[+] Launching httpfluent via PATH..."
+    httpfluent
+}
+else {
+    Write-Host "[-] httpfluent executable not found"
+    Write-Host "    Expected at: $HttpFluentExe"
+}
