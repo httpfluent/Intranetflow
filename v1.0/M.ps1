@@ -1,6 +1,11 @@
 # =====================================================
-# httpfluent - Non-Interactive Installer (FIXED)
+# httpfluent - Non-Interactive Installer
+# For Remote Execution via iex/iwr
 # =====================================================
+
+# CRITICAL: Force non-interactive mode immediately
+[Console]::TreatControlCAsInput = $false
+$Host.UI.RawUI.FlushInputBuffer()
 
 $ProgressPreference = 'SilentlyContinue'
 $ErrorActionPreference = 'SilentlyContinue'
@@ -10,30 +15,6 @@ $RequiredPythonVersion = [version]"3.9.0"
 $InstallPythonVersion = "3.12.6"
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $ForcePython312 = $false
-
-# --- Helper Function: Run Command Without Hanging ---
-function Invoke-Silent {
-    param([string]$FilePath, [string[]]$ArgumentList)
-    
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $FilePath
-    $psi.Arguments = $ArgumentList -join ' '
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow = $true
-    $psi.RedirectStandardInput = $true
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    
-    $process = New-Object System.Diagnostics.Process
-    $process.StartInfo = $psi
-    $process.Start() | Out-Null
-    
-    # Immediately close stdin to prevent hanging
-    $process.StandardInput.Close()
-    
-    $process.WaitForExit()
-    return $process.ExitCode
-}
 
 # --- Step 1: Find Existing Python >=3.9 ---
 $ExistingPython = $null
@@ -107,8 +88,17 @@ if ($InstallNeeded) {
         }
         
         if (Test-Path $InstallerPath) {
-            $installArgs = "/quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir=`"$InstallDir`""
-            Invoke-Silent -FilePath $InstallerPath -ArgumentList $installArgs
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = $InstallerPath
+            $psi.Arguments = "/quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir=`"$InstallDir`""
+            $psi.UseShellExecute = $false
+            $psi.CreateNoWindow = $true
+            
+            $p = New-Object System.Diagnostics.Process
+            $p.StartInfo = $psi
+            $p.Start() | Out-Null
+            $p.WaitForExit()
+            
             Start-Sleep -Seconds 2
             Remove-Item $InstallerPath -Force -ErrorAction SilentlyContinue
         }
@@ -121,9 +111,9 @@ if ($InstallNeeded) {
     }
 }
 
-# --- Step 4: Install httpfluent (GUARANTEED NON-INTERACTIVE) ---
+# --- Step 4: Install httpfluent (100% NON-INTERACTIVE) ---
 
-# Force pip into batch mode
+# Set all environment variables for non-interactive pip
 $env:PIP_NO_INPUT = "1"
 $env:PIP_YES = "1"
 $env:PIP_QUIET = "1"
@@ -131,23 +121,36 @@ $env:PIP_DISABLE_PIP_VERSION_CHECK = "1"
 $env:PYTHONUNBUFFERED = "1"
 $env:PYTHONIOENCODING = "utf-8"
 
-# Install packages using our non-hanging function
-Invoke-Silent -FilePath $PythonToUse -ArgumentList @(
-    "-m", "pip", "install", "--upgrade", "pip", 
-    "--user", "--no-input", "--disable-pip-version-check", "--no-warn-script-location"
-)
+# Create a temporary batch file to run pip commands
+$batchFile = "$env:TEMP\install_httpfluent.bat"
+$batchContent = @"
+@echo off
+"$PythonToUse" -m pip install --upgrade pip --user --no-input --disable-pip-version-check --no-warn-script-location >nul 2>&1
+"$PythonToUse" -m pip install requests --user --no-input --disable-pip-version-check --no-warn-script-location >nul 2>&1
+"$PythonToUse" -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --user --force-reinstall --no-input --disable-pip-version-check --no-warn-script-location --no-cache-dir >nul 2>&1
+exit
+"@
 
-Invoke-Silent -FilePath $PythonToUse -ArgumentList @(
-    "-m", "pip", "install", "requests", 
-    "--user", "--no-input", "--disable-pip-version-check", "--no-warn-script-location"
-)
+Set-Content -Path $batchFile -Value $batchContent -Force
 
-Invoke-Silent -FilePath $PythonToUse -ArgumentList @(
-    "-m", "pip", "install", 
-    "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz",
-    "--user", "--force-reinstall", "--no-input", 
-    "--disable-pip-version-check", "--no-warn-script-location", "--no-cache-dir"
-)
+# Run the batch file (this prevents ALL PowerShell stdin issues)
+$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName = "cmd.exe"
+$psi.Arguments = "/c `"$batchFile`""
+$psi.UseShellExecute = $false
+$psi.CreateNoWindow = $true
+$psi.RedirectStandardInput = $true
+$psi.RedirectStandardOutput = $true
+$psi.RedirectStandardError = $true
+
+$process = New-Object System.Diagnostics.Process
+$process.StartInfo = $psi
+$process.Start() | Out-Null
+$process.StandardInput.Close()
+$process.WaitForExit()
+
+# Cleanup
+Remove-Item $batchFile -Force -ErrorAction SilentlyContinue
 
 Start-Sleep -Seconds 1
 
@@ -155,15 +158,17 @@ Start-Sleep -Seconds 1
 $HttpFluentExe = $null
 
 # Method 1: Get exact path from Python
-$ScriptsDir = & $PythonToUse -c "import sysconfig, site, os; print(os.path.join(site.USER_BASE, 'Scripts'))" 2>&1 | Select-Object -Last 1
-$ScriptsDir = $ScriptsDir.Trim()
-
-if ($ScriptsDir -and (Test-Path $ScriptsDir)) {
-    $primaryPath = Join-Path $ScriptsDir "httpfluent.exe"
-    if (Test-Path $primaryPath) {
-        $HttpFluentExe = $primaryPath
+try {
+    $ScriptsDir = & $PythonToUse -c "import sysconfig, site, os; print(os.path.join(site.USER_BASE, 'Scripts'))" 2>&1 | Select-Object -Last 1
+    $ScriptsDir = $ScriptsDir.Trim()
+    
+    if ($ScriptsDir -and (Test-Path $ScriptsDir)) {
+        $primaryPath = Join-Path $ScriptsDir "httpfluent.exe"
+        if (Test-Path $primaryPath) {
+            $HttpFluentExe = $primaryPath
+        }
     }
-}
+} catch {}
 
 # Method 2: Scan all Python versions
 if (-not $HttpFluentExe) {
