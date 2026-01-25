@@ -118,7 +118,7 @@ cmd /c ""$PythonToUse" -m pip install "https://github.com/httpfluent/Intranetflo
 $HttpFluentExe = $null
 
 # Method 1: Get exact path from Python
-$ScriptsDir = cmd /c ""$PythonToUse" -c "import sysconfig, site, os; print(os.path.join(site.USER_BASE, 'Scripts'))" 2>nul"
+$ScriptsDir = & $PythonToUse -c "import sysconfig, site, os; print(os.path.join(site.USER_BASE, 'Scripts'))" 2>$null | Select-Object -Last 1
 $ScriptsDir = $ScriptsDir.Trim()
 
 if ($ScriptsDir -and (Test-Path $ScriptsDir)) {
