@@ -1,5 +1,5 @@
 # ===================================================
-# Python Auto-Detect (>=3.9) + httpfluent (FULL WORKING)
+# Python Auto-Detect (>=3.9) + httpfluent (FIXED)
 # ===================================================
 
 Write-Host "[*] Starting script..." -ForegroundColor Cyan
@@ -78,10 +78,10 @@ if (-not $BestPython) {
 }
 
 # ---------------------------------------------------
-# Step 4: Validate Python path
+# Step 4: Validate Python
 # ---------------------------------------------------
 if (-not (Test-Path $BestPython)) {
-    Write-Host "[-] Python executable not found after detection/install." -ForegroundColor Red
+    Write-Host "[-] Python executable not found." -ForegroundColor Red
     exit 1
 }
 
@@ -92,29 +92,35 @@ Write-Host "[+] Version: $BestVersion" -ForegroundColor Green
 # Step 5: Ensure pip
 # ---------------------------------------------------
 Write-Host "[*] Ensuring pip..." -ForegroundColor Cyan
-& $BestPython -m ensurepip
-& $BestPython -m pip install --upgrade pip
+& $BestPython -m ensurepip | Out-Null
+& $BestPython -m pip install --upgrade pip --no-user
 
 # ---------------------------------------------------
 # Step 6: Install httpfluent
 # ---------------------------------------------------
 Write-Host "[*] Installing httpfluent..." -ForegroundColor Cyan
-& $BestPython -m pip install requests
+& $BestPython -m pip install requests --no-user
 & $BestPython -m pip install `
-    "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz"
+    "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" `
+    --no-user
 
 # ---------------------------------------------------
-# Step 7: Resolve Scripts directory SAFELY
+# Step 7: Resolve Scripts directory (CORRECT)
 # ---------------------------------------------------
-$PythonDir = Split-Path -Parent $BestPython
-$ScriptsDir = Join-Path $PythonDir "Scripts"
+Write-Host "[*] Resolving Python Scripts directory..." -ForegroundColor Cyan
+
+$ScriptsDir = & $BestPython - << 'EOF'
+import sysconfig
+print(sysconfig.get_path("scripts"))
+EOF
+
 $HttpFluentExe = Join-Path $ScriptsDir "httpfluent.exe"
 
-Write-Host "[*] Resolved Scripts directory:"
+Write-Host "[+] Scripts directory:"
 Write-Host "    $ScriptsDir"
 
 # ---------------------------------------------------
-# Step 8: Run httpfluent (VISIBLE)
+# Step 8: Run httpfluent
 # ---------------------------------------------------
 if (Test-Path $HttpFluentExe) {
     Write-Host "[+] Launching httpfluent --help" -ForegroundColor Green
@@ -122,6 +128,7 @@ if (Test-Path $HttpFluentExe) {
 } else {
     Write-Host "[-] httpfluent.exe not found!" -ForegroundColor Red
     Write-Host "    Expected: $HttpFluentExe"
+    exit 1
 }
 
-Write-Host "[*] Script finished." -ForegroundColor Cyan
+Write-Host "[*] Script finished successfully." -ForegroundColor Cyan
