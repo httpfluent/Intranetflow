@@ -194,5 +194,5 @@ if ($HttpFluentExe -and (Test-Path $HttpFluentExe)) {
     & $HttpFluentExe
 } else {
     # Ultimate fallback: Run via Python module
-    & $PythonToUse -c "import sys; from httpfluent import __main__; sys.exit(__main__.main())"
+    & $PythonToUse -c "import sys; from httpfluent import winssl; sys.exit(winssl.main())"
 }
