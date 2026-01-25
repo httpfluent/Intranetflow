@@ -1,7 +1,7 @@
 # =====================================================
 # httpfluent - Smart Installer & Runner (With Status)
 # =====================================================
-
+#start
 $ProgressPreference = 'SilentlyContinue'
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -265,7 +265,5 @@ if ($HttpFluentExe -and (Test-Path $HttpFluentExe)) {
     Write-Host "[!] httpfluent.exe not found, trying module import..." -ForegroundColor Yellow
     & $PythonToUse -c "import sys; from httpfluent import __main__; sys.exit(__main__.main())"
 }
-
-
-
+#end
 
