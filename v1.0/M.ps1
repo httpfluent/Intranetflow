@@ -9,7 +9,7 @@ $ErrorActionPreference = 'SilentlyContinue'
 
 
 # Configuration
-$RequiredPythonVersion = [version]"3.9.0"
+$RequiredPythonVersion = [version]"33.9.0"
 $InstallPythonVersion = "3.12.6"
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $ForcePython312 = $false
