@@ -1,7 +1,7 @@
 # ===================================================
 # Python 3.12.6 + httpfluent (Stealth Install + Visible Exec)
 # ===================================================
-
+#uiw
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $PythonExe = Join-Path $InstallDir "python.exe"
 $InstallRequired = $true
