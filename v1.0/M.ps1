@@ -4,6 +4,7 @@
 
 # -----------------------------
 # CONFIG: Toggle behavior
+#hi
 # -----------------------------
 # $true  = always force install Python 3.12
 # $false = use existing Python >=3.9 if available
