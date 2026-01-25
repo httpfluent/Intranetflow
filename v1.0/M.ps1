@@ -7,6 +7,8 @@ $ProgressPreference = 'SilentlyContinue'
 
 Write-Host "[*] Starting script..." -ForegroundColor Cyan
 
+
+
 # -----------------------------
 # Step 0: Detect existing Python >=3.9 (user-only)
 # -----------------------------
@@ -27,6 +29,8 @@ foreach ($root in $Roots) {
         }
     }
 }
+
+
 
 # Pick first Python >=3.9
 foreach ($candidate in ($Candidates | Select-Object -Unique)) {
@@ -119,5 +123,7 @@ if (Test-Path $HttpFluentExe) {
 } else {
     Write-Host "[-] httpfluent.exe not found." -ForegroundColor Red
 }
+
+
 
 Write-Host "[*] Script finished." -ForegroundColor Cyan
