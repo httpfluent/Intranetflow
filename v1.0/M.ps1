@@ -1,13 +1,13 @@
 # =====================================================
-# TEST / PRODUCTION Python + httpfluent installer
+# Python 3.12 + httpfluent installer (per-user, no admin)
 # =====================================================
-#start
+
 # -----------------------------
 # CONFIG: Toggle behavior
 # -----------------------------
-# $true  = force download & use Python 3.12
+# $true  = always force install Python 3.12
 # $false = use existing Python >=3.9 if available
-$ForcePythonInstall = $false
+$ForcePythonInstall = $true
 
 # Silently ignore progress bars
 $ProgressPreference = 'SilentlyContinue'
@@ -15,14 +15,13 @@ $ProgressPreference = 'SilentlyContinue'
 Write-Host "[*] Starting script..." -ForegroundColor Cyan
 
 # -----------------------------
-# Step 1: Find Python >= 3.9
+# Step 1: Find existing Python >=3.9 (if not forcing)
 # -----------------------------
 $BestPython = $null
 $BestVersion = $null
 $Candidates = @()
 
 if (-not $ForcePythonInstall) {
-    # Only check if force install is off
     $cmd = Get-Command python -ErrorAction SilentlyContinue
     if ($cmd) { $Candidates += $cmd.Source }
 
@@ -58,13 +57,13 @@ if (-not $ForcePythonInstall) {
 }
 
 # -----------------------------
-# Step 2: Install Python 3.12 (FORCED or missing)
+# Step 2: Install Python 3.12 (per-user)
 # -----------------------------
 $PythonRoot = "$env:LOCALAPPDATA\Programs\Python\Python312-Test"
 $PythonExe = Join-Path $PythonRoot "python.exe"
 
 if ($ForcePythonInstall -or -not $BestPython -or -not (Test-Path $BestPython)) {
-    Write-Host "[!] Installing Python 3.12.6..." -ForegroundColor Yellow
+    Write-Host "[!] Installing Python 3.12.6 (per-user)..." -ForegroundColor Yellow
 
     $Installer = "$env:TEMP\python-3.12.6-installer.exe"
 
@@ -123,5 +122,3 @@ if (Test-Path $HttpFluentExe) {
 }
 
 Write-Host "[*] Script finished." -ForegroundColor Cyan
-#end
-#eng agaun
