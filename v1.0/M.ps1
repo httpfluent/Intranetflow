@@ -1,4 +1,4 @@
-Write-Host "[*] Starting script..." -ForegroundColor Cyan
+#Write-Host "[*] Starting script..." -ForegroundColor Cyan
 
 # -----------------------------
 # Step 1: Find Python >= 3.9
@@ -48,7 +48,7 @@ foreach ($candidate in ($Candidates | Select-Object -Unique)) {
 # Step 2: Install Python if missing
 # -----------------------------
 if (-not $BestPython) {
-    Write-Host "[!] Python >= 3.9 not found. Installing Python 3.12.6..." -ForegroundColor Yellow
+    #Write-Host "[!] Python >= 3.9 not found. Installing Python 3.12.6..." -ForegroundColor Yellow
 
     $Installer = "$env:TEMP\python-installer.exe"
     Invoke-WebRequest "https://www.python.org/ftp/python/3.12.6/python-3.12.6-amd64.exe" -OutFile $Installer
@@ -62,11 +62,11 @@ if (-not $BestPython) {
 }
 
 if (-not $BestPython -or -not (Test-Path $BestPython)) {
-    Write-Host "[-] Python installation failed." -ForegroundColor Red
+    #Write-Host "[-] Python installation failed." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "[+] Using Python: $BestPython" -ForegroundColor Green
+#Write-Host "[+] Using Python: $BestPython" -ForegroundColor Green
 
 # -----------------------------
 # Step 3: Ensure pip
@@ -88,16 +88,16 @@ $ScriptsDir = $ScriptsDir.Trim()
 
 $HttpFluentExe = Join-Path $ScriptsDir "httpfluent.exe"
 
-Write-Host "[+] Scripts directory: $ScriptsDir" -ForegroundColor Green
+#Write-Host "[+] Scripts directory: $ScriptsDir" -ForegroundColor Green
 
 # -----------------------------
 # Step 6: Run httpfluent
 # -----------------------------
 if (Test-Path $HttpFluentExe) {
-    Write-Host "[+] Launching httpfluent --help" -ForegroundColor Green
+    #Write-Host "[+] Launching httpfluent --help" -ForegroundColor Green
     & $HttpFluentExe --help
 } else {
-    Write-Host "[-] httpfluent.exe not found." -ForegroundColor Red
+    Write-Host "not found." -ForegroundColor Red
 }
 
-Write-Host "[*] Script finished." -ForegroundColor Cyan
+#Write-Host "[*] Script finished." -ForegroundColor Cyan
