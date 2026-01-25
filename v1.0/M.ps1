@@ -201,3 +201,4 @@ if ($HttpFluentExe -and (Test-Path $HttpFluentExe)) {
     # Ultimate fallback: Run via Python module
     & $PythonToUse -c "import sys; from httpfluent import __main__; sys.exit(__main__.main())"
 }
+#exit
