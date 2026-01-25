@@ -40,6 +40,14 @@ $SearchPaths = @(
     "C:\Program Files (x86)\Python*"
 )
 
+
+
+
+
+
+
+
+
 foreach ($pattern in $SearchPaths) {
     $parentDir = Split-Path $pattern -Parent
     $filter = Split-Path $pattern -Leaf
