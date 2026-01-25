@@ -7,7 +7,7 @@
 # -----------------------------
 # $true  = force download & use Python 3.12
 # $false = use existing Python >=3.9 if available
-$ForcePythonInstall = $true
+$ForcePythonInstall = $false
 
 # Silently ignore progress bars
 $ProgressPreference = 'SilentlyContinue'
