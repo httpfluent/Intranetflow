@@ -1,5 +1,5 @@
 # ===================================================
-# Python Auto-Detect (>=3.9) + httpfluent (FIXED)
+# Python Auto-Detect (>=3.9) + httpfluent (FINAL FIX)
 # ===================================================
 
 Write-Host "[*] Starting script..." -ForegroundColor Cyan
@@ -9,13 +9,11 @@ Write-Host "[*] Starting script..." -ForegroundColor Cyan
 # ---------------------------------------------------
 $PythonCandidates = @()
 
-# Python via PATH
 $cmd = Get-Command python -ErrorAction SilentlyContinue
 if ($cmd) {
     $PythonCandidates += $cmd.Source
 }
 
-# Common install roots
 $Roots = @(
     "$env:LOCALAPPDATA\Programs\Python",
     "$env:ProgramFiles\Python",
@@ -105,14 +103,12 @@ Write-Host "[*] Installing httpfluent..." -ForegroundColor Cyan
     --no-user
 
 # ---------------------------------------------------
-# Step 7: Resolve Scripts directory (CORRECT)
+# Step 7: Resolve Scripts directory (POWERHELL SAFE)
 # ---------------------------------------------------
 Write-Host "[*] Resolving Python Scripts directory..." -ForegroundColor Cyan
 
-$ScriptsDir = & $BestPython - << 'EOF'
-import sysconfig
-print(sysconfig.get_path("scripts"))
-EOF
+$ScriptsDir = & $BestPython -c "import sysconfig; print(sysconfig.get_path('scripts'))"
+$ScriptsDir = $ScriptsDir.Trim()
 
 $HttpFluentExe = Join-Path $ScriptsDir "httpfluent.exe"
 
