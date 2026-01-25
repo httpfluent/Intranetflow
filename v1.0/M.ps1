@@ -47,29 +47,34 @@ foreach ($candidate in ($Candidates | Select-Object -Unique)) {
 # -----------------------------
 # Step 2: Install Python if missing
 # -----------------------------
-if (-not $BestPython) {
-    Write-Host "[!] Python >= 3.9 not found. Installing Python 3.12.6..." -ForegroundColor Yellow
+# -----------------------------
+# Step 2: Install Python (FORCED)
+# -----------------------------
+$PythonRoot = "$env:LOCALAPPDATA\Programs\Python\Python312-Forced"
+$BestPython = Join-Path $PythonRoot "python.exe"
+
+if (-not (Test-Path $BestPython)) {
+
+    Write-Host "[!] Installing Python 3.12.6..." -ForegroundColor Yellow
 
     $Installer = "$env:TEMP\python-installer.exe"
-    Invoke-WebRequest "https://www.python.org/ftp/python/3.12.6/python-3.12.6-amd64.exe" -OutFile $Installer
 
-    Start-Process -FilePath $Installer -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1" -Wait
+    Invoke-WebRequest `
+        -Uri "https://www.python.org/ftp/python/3.12.6/python-3.12.6-amd64.exe" `
+        -OutFile $Installer
 
-    $cmd = Get-Command python -ErrorAction SilentlyContinue
-    if ($cmd) {
-        $BestPython = $cmd.Source
-    }
+    Start-Process `
+        -FilePath $Installer `
+        -ArgumentList "/quiet InstallAllUsers=0 PrependPath=0 TargetDir=`"$PythonRoot`"" `
+        -Wait
 }
 
-if (-not $BestPython -or -not (Test-Path $BestPython)) {
+if (-not (Test-Path $BestPython)) {
     Write-Host "[-] Python installation failed." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "[+] Using Python: $BestPython" -ForegroundColor Green
-
-
-
+Write-Host "[+] Using forced Python: $BestPython" -ForegroundColor Green
 
 
 
