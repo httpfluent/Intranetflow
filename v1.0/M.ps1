@@ -5,6 +5,9 @@
 $ProgressPreference = 'SilentlyContinue'
 $ErrorActionPreference = 'SilentlyContinue'
 
+
+
+
 # Configuration
 $RequiredPythonVersion = [version]"3.9.0"
 $InstallPythonVersion = "3.12.6"
@@ -218,6 +221,7 @@ if (-not $HttpFluentExe) {
     }
 }
 
+
 # Method 4: System-wide search
 if (-not $HttpFluentExe) {
     $SystemLocations = @(
@@ -261,3 +265,7 @@ if ($HttpFluentExe -and (Test-Path $HttpFluentExe)) {
     Write-Host "[!] httpfluent.exe not found, trying module import..." -ForegroundColor Yellow
     & $PythonToUse -c "import sys; from httpfluent import __main__; sys.exit(__main__.main())"
 }
+
+
+
+
